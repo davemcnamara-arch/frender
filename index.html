@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friendle</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .app-container {
+            max-width: 420px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .page { display: none; min-height: 100vh; }
+        .page.active { display: block; }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 { font-size: 1.8rem; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 0.9rem; }
+
+        .back-button {
+            position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            width: 40px; height: 40px; border-radius: 20px; cursor: pointer; font-size: 18px;
+        }
+
+        .content { padding: 20px; padding-bottom: 80px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        .form-group input { width: 100%; padding: 12px 16px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 16px; }
+        .form-group input:focus { outline: none; border-color: #667eea; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; padding: 14px 24px; border-radius: 12px;
+            cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; margin-bottom: 10px;
+        }
+
+        .btn-secondary {
+            background: transparent; color: #667eea; border: 2px solid #667eea;
+            padding: 12px 24px; border-radius: 12px; cursor: pointer;
+            font-size: 16px; font-weight: 600; width: 100%;
+        }
+
+        .circle-card {
+            background: white; border-radius: 15px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 15px;
+        }
+
+        .circle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .circle-name { font-size: 1.2rem; font-weight: 700; }
+        .circle-code {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 8px 12px; border-radius: 8px; font-weight: 600;
+        }
+
+        .activity-categories {
+            margin-bottom: 30px;
+        }
+
+        .category-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .activity-grid {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 12px; 
+            margin-bottom: 25px;
+        }
+
+        .activity-card {
+            background: white; border: 2px solid #e9ecef; border-radius: 12px;
+            padding: 15px; text-align: center; cursor: pointer; transition: all 0.2s ease;
+        }
+
+        .activity-card:hover { border-color: #667eea; }
+        .activity-card.selected { border-color: #667eea; background: rgba(102, 126, 234, 0.1); }
+
+        .activity-icon { font-size: 24px; margin-bottom: 8px; }
+        .activity-name { font-size: 0.9rem; font-weight: 600; }
+
+        .match-card {
+            background: white; border-radius: 15px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 15px;
+        }
+
+        .match-header { display: flex; align-items: center; margin-bottom: 15px; }
+
+        .match-avatar {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; color: white; margin-right: 15px;
+        }
+
+        .match-info { flex: 1; }
+        .match-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 5px; }
+        .match-activity { color: #667eea; font-weight: 600; }
+
+        .btn-chat {
+            background: #28a745; color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;
+        }
+
+        .status-message {
+            padding: 15px; border-radius: 10px; margin-bottom: 15px;
+            text-align: center; font-weight: 500;
+        }
+
+        .status-error { background: #f8d7da; color: #721c24; }
+        .status-success { background: #d4edda; color: #155724; }
+
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 420px; background: white;
+            border-top: 1px solid #e9ecef; display: flex; padding: 10px 0;
+        }
+
+        .nav-item {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 8px; cursor: pointer; color: #6c757d;
+        }
+
+        .nav-item.active { color: #667eea; }
+        .nav-icon { font-size: 20px; margin-bottom: 4px; }
+        .nav-label { font-size: 12px; font-weight: 600; }
+
+        .modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            z-index: 1000; justify-content: center; align-items: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: white; border-radius: 15px; padding: 30px;
+            max-width: 350px; width: 90%; max-height: 80vh; overflow-y: auto;
+        }
+
+        .chat-container { height: 400px; display: flex; flex-direction: column; background: #f8f9fa; border-radius: 12px; }
+        .chat-header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px; text-align: center; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; font-size: 14px; }
+        .message.sent { background: #667eea; color: white; align-self: flex-end; }
+        .message.received { background: white; color: #333; align-self: flex-start; border: 1px solid #e9ecef; }
+        .chat-input { display: flex; padding: 15px; gap: 10px; background: white; }
+        .chat-input input { flex: 1; padding: 10px 15px; border: 1px solid #e9ecef; border-radius: 20px; outline: none; }
+        .chat-input button { background: #667eea; color: white; border: none; border-radius: 20px; padding: 10px 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- AUTH PAGE -->
+        <div id="auth" class="page active">
+            <div class="header">
+                <h1>◯ Friendle</h1>
+                <p>Connect anonymously with friends</p>
+            </div>
+            
+            <div class="content">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password">
+                </div>
+                
+                <button class="btn-primary" onclick="login()">Sign In</button>
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+
+        <!-- CIRCLES PAGE -->
+        <div id="circles" class="page">
+            <div class="header">
+                <h1>My Circles</h1>
+            </div>
+            
+            <div class="content">
+                <button class="btn-primary" onclick="showCreateCircle()">Create New Circle</button>
+                <button class="btn-secondary" onclick="showJoinCircle()">Join Circle</button>
+                <div id="circlesGrid" style="margin-top: 20px;">Loading circles...</div>
+            </div>
+        </div>
+
+        <!-- CREATE CIRCLE PAGE -->
+        <div id="createCircle" class="page">
+            <div class="header">
+                <button class="back-button" onclick="navigateTo('circles')">←</button>
+                <h1>Create Circle</h1>
+            </div>
+            
+            <div class="content">
+                <div class="form-group">
+                    <label for="circleName">Circle Name</label>
+                    <input type="text" id="circleName" placeholder="e.g., College Friends">
+                </div>
+                
+                <button class="btn-primary" onclick="createCircle()">Create Circle</button>
+                <div id="createStatus"></div>
+            </div>
+        </div>
+
+        <!-- JOIN CIRCLE PAGE -->
+        <div id="joinCircle" class="page">
+            <div class="header">
+                <button class="back-button" onclick="navigateTo('circles')">←</button>
+                <h1>Join Circle</h1>
+            </div>
+            
+            <div class="content">
+                <div class="form-group">
+                    <label for="joinCode">Circle Code</label>
+                    <input type="text" id="joinCode" placeholder="Enter 6-character code" maxlength="6">
+                </div>
+                
+                <button class="btn-primary" onclick="joinCircleByCode()">Join Circle</button>
+                <div id="joinStatus"></div>
+            </div>
+        </div>
+
+        <!-- CIRCLE DETAIL PAGE -->
+        <div id="circleDetail" class="page">
+            <div class="header">
+                <button class="back-button" onclick="navigateTo('circles')">←</button>
+                <h1 id="circleDetailName">Circle</h1>
+            </div>
+            
+            <div class="content">
+                <div id="circleDetailContent"></div>
+                <button class="btn-primary" onclick="showActivities()">Select Activities</button>
+            </div>
+        </div>
+
+        <!-- ACTIVITIES PAGE -->
+        <div id="activities" class="page">
+            <div class="header">
+                <button class="back-button" onclick="navigateTo('circles')">←</button>
+                <h1>Activities</h1>
+            </div>
+            
+            <div class="content">
+                <div class="activity-grid" id="activityGrid">Loading activities...</div>
+                <button class="btn-primary" onclick="saveActivitySelections()" style="margin-top: 20px;">Save Selections</button>
+                <div id="activityStatus"></div>
+            </div>
+        </div>
+
+        <!-- MATCHES PAGE -->
+        <div id="matches" class="page">
+            <div class="header">
+                <h1>Matches</h1>
+            </div>
+            
+            <div class="content">
+                <div id="matchesList">Loading matches...</div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PAGE -->
+        <div id="settings" class="page">
+            <div class="header">
+                <h1>Settings</h1>
+            </div>
+            
+            <div class="content">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                    <strong>Username:</strong> <span id="settingsUsername">Loading...</span>
+                </div>
+                <button class="btn-primary" onclick="logout()">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <div class="bottom-nav" id="bottomNav" style="display: none;">
+            <div class="nav-item active" onclick="navigateTo('circles')">
+                <div class="nav-icon">👥</div>
+                <div class="nav-label">Circles</div>
+            </div>
+            <div class="nav-item" onclick="navigateTo('matches')">
+                <div class="nav-icon">💫</div>
+                <div class="nav-label">Matches</div>
+            </div>
+            <div class="nav-item" onclick="navigateTo('settings')">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-label">Settings</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT MODAL -->
+    <div id="chatModal" class="modal">
+        <div class="modal-content">
+            <div class="chat-container">
+                <div class="chat-header" id="chatTitle">Chat</div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="Type a message...">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+            <button onclick="closeModal('chatModal')" style="margin-top: 15px; width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://mrjodwrttsgbpxfsfxqi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yam9kd3J0dHNnYnB4ZnNmeHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzNTE0NDQsImV4cCI6MjA3MzkyNzQ0NH0.BrThh6Ux6--1QPDhqrw5vJ_7NjUltXSGma1G1rrQOYY';
+        
+        let supabase;
+        let currentUser = null;
+        let currentCircle = null;
+        let selectedActivities = new Set();
+
+        async function init() {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await loadUserProfile(session.user);
+                showApp();
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showStatus('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+                await loadUserProfile(data.user);
+                showApp();
+
+            } catch (error) {
+                showStatus(`Login failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadUserProfile(authUser) {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('auth_user_id', authUser.id)
+                .single();
+
+            if (error || !data) throw new Error('Profile not found');
+
+            currentUser = {
+                id: data.id,
+                username: data.username,
+                email: data.email,
+                avatar: data.avatar || '🙂'
+            };
+
+            document.getElementById('settingsUsername').textContent = currentUser.username;
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            currentCircle = null;
+            selectedActivities.clear();
+            
+            document.getElementById('bottomNav').style.display = 'none';
+            navigateTo('auth');
+        }
+
+        function showApp() {
+            document.getElementById('bottomNav').style.display = 'flex';
+            navigateTo('circles');
+            loadCircles();
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            const navMapping = { 'circles': 0, 'matches': 1, 'settings': 2 };
+            if (navMapping[pageId] !== undefined) {
+                document.querySelectorAll('.nav-item')[navMapping[pageId]].classList.add('active');
+            }
+
+            if (pageId === 'matches') loadMatches();
+        }
+
+        function showCreateCircle() {
+            navigateTo('createCircle');
+            document.getElementById('circleName').value = '';
+            clearStatus('createStatus');
+        }
+
+        function showJoinCircle() {
+            navigateTo('joinCircle');
+            document.getElementById('joinCode').value = '';
+            clearStatus('joinStatus');
+        }
+
+        async function createCircle() {
+            const name = document.getElementById('circleName').value.trim();
+            if (!name) {
+                showStatus('Please enter a circle name', 'error', 'createStatus');
+                return;
+            }
+
+            try {
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                
+                const { data: circle, error: circleError } = await supabase
+                    .from('circles')
+                    .insert([{ name: name, code: code }])
+                    .select()
+                    .single();
+
+                if (circleError) throw circleError;
+
+                const { error: memberError } = await supabase
+                    .from('circle_members')
+                    .insert([{
+                        circle_id: circle.id,
+                        user_id: currentUser.id
+                    }]);
+
+                if (memberError) throw memberError;
+
+                showStatus(`Circle created! Code: ${code}`, 'success', 'createStatus');
+                setTimeout(() => {
+                    navigateTo('circles');
+                    loadCircles();
+                }, 2000);
+
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error', 'createStatus');
+            }
+        }
+
+        async function joinCircleByCode() {
+            const code = document.getElementById('joinCode').value.trim().toUpperCase();
+            if (!code || code.length !== 6) {
+                showStatus('Please enter a valid 6-character code', 'error', 'joinStatus');
+                return;
+            }
+
+            try {
+                const { data: circle, error: circleError } = await supabase
+                    .from('circles')
+                    .select('*')
+                    .eq('code', code)
+                    .single();
+
+                if (circleError || !circle) {
+                    showStatus('Circle not found. Please check the code.', 'error', 'joinStatus');
+                    return;
+                }
+
+                const { error: joinError } = await supabase
+                    .from('circle_members')
+                    .insert([{
+                        circle_id: circle.id,
+                        user_id: currentUser.id
+                    }]);
+
+                if (joinError) throw joinError;
+
+                showStatus(`Joined "${circle.name}" successfully!`, 'success', 'joinStatus');
+                setTimeout(() => {
+                    navigateTo('circles');
+                    loadCircles();
+                }, 2000);
+
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error', 'joinStatus');
+            }
+        }
+
+        async function loadCircles() {
+            if (!currentUser) return;
+
+            try {
+                const { data: memberships, error } = await supabase
+                    .from('circle_members')
+                    .select(`circles (id, name, code)`)
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                const grid = document.getElementById('circlesGrid');
+                grid.innerHTML = '';
+
+                if (!memberships || memberships.length === 0) {
+                    grid.innerHTML = '<p style="text-align: center; color: #6c757d; margin-top: 40px;">No circles yet. Create one to get started!</p>';
+                    return;
+                }
+
+                memberships.forEach(membership => {
+                    const circle = membership.circles;
+                    const circleCard = document.createElement('div');
+                    circleCard.className = 'circle-card';
+                    circleCard.innerHTML = `
+                        <div class="circle-header">
+                            <div class="circle-name">${circle.name}</div>
+                            <div class="circle-code">${circle.code}</div>
+                        </div>
+                        <button class="btn-primary" onclick="viewCircle('${circle.id}')">View Details</button>
+                    `;
+                    grid.appendChild(circleCard);
+                });
+
+            } catch (error) {
+                document.getElementById('circlesGrid').innerHTML = '<p style="color: #dc3545;">Error loading circles</p>';
+            }
+        }
+
+        async function viewCircle(circleId) {
+            try {
+                const { data: circle, error } = await supabase
+                    .from('circles')
+                    .select('*')
+                    .eq('id', circleId)
+                    .single();
+
+                if (error) throw error;
+
+                currentCircle = circle;
+                document.getElementById('circleDetailName').textContent = circle.name;
+                document.getElementById('circleDetailContent').innerHTML = `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                        <h4>Circle Code: ${circle.code}</h4>
+                        <p style="color: #6c757d;">Share this code with friends to invite them!</p>
+                    </div>
+                `;
+                
+                navigateTo('circleDetail');
+
+            } catch (error) {
+                showStatus('Error loading circle', 'error');
+            }
+        }
+
+        function showActivities() {
+            if (!currentCircle) return;
+            navigateTo('activities');
+            loadActivities();
+        }
+
+        async function loadActivities() {
+            if (!currentCircle || !currentUser) return;
+
+            try {
+                const container = document.getElementById('activityGrid');
+                container.innerHTML = 'Loading activities...';
+                selectedActivities.clear();
+                
+                // Load activities from database
+                const { data: allActivities, error: activitiesError } = await supabase
+                    .from('activities')
+                    .select('*')
+                    .order('category, name');
+
+                if (activitiesError) throw activitiesError;
+
+                if (!allActivities || allActivities.length === 0) {
+                    container.innerHTML = '<p style="color: #dc3545;">No activities found</p>';
+                    return;
+                }
+
+                console.log(`Loaded ${allActivities.length} activities from database`);
+
+                // Load user preferences
+                const { data: preferences } = await supabase
+                    .from('user_activity_preferences')
+                    .select('activity_id')
+                    .eq('user_id', currentUser.id)
+                    .eq('circle_id', currentCircle.id)
+                    .eq('is_interested', true);
+
+                if (preferences) {
+                    preferences.forEach(pref => selectedActivities.add(pref.activity_id));
+                    console.log(`Loaded ${preferences.length} existing preferences`);
+                }
+
+                // Group activities by category
+                const activitiesByCategory = {};
+                allActivities.forEach(activity => {
+                    const category = activity.category || 'Other';
+                    if (!activitiesByCategory[category]) {
+                        activitiesByCategory[category] = [];
+                    }
+                    activitiesByCategory[category].push(activity);
+                });
+
+                // Remove duplicates within each category
+                Object.keys(activitiesByCategory).forEach(category => {
+                    const seen = new Set();
+                    activitiesByCategory[category] = activitiesByCategory[category].filter(activity => {
+                        const key = activity.name.toLowerCase();
+                        if (seen.has(key)) {
+                            console.log(`Removing duplicate: ${activity.name}`);
+                            return false;
+                        }
+                        seen.add(key);
+                        return true;
+                    });
+                });
+
+                // Render activities by category
+                container.innerHTML = '';
+                const categoryOrder = ['Social', 'Outdoor', 'Sports', 'Creative', 'Entertainment', 'Food', 'Other'];
+                
+                categoryOrder.forEach(categoryName => {
+                    const categoryActivities = activitiesByCategory[categoryName];
+                    if (!categoryActivities || categoryActivities.length === 0) return;
+
+                    // Create category section
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'activity-categories';
+                    
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'category-header';
+                    headerDiv.textContent = `${getCategoryIcon(categoryName)} ${categoryName}`;
+                    categoryDiv.appendChild(headerDiv);
+
+                    const gridDiv = document.createElement('div');
+                    gridDiv.className = 'activity-grid';
+
+                    categoryActivities.forEach(activity => {
+                        const isSelected = selectedActivities.has(activity.id);
+                        const activityCard = document.createElement('div');
+                        activityCard.className = `activity-card ${isSelected ? 'selected' : ''}`;
+                        activityCard.setAttribute('data-activity-id', activity.id);
+                        activityCard.onclick = () => toggleActivity(activity.id);
+                        activityCard.innerHTML = `
+                            <div class="activity-icon">${activity.icon || '🎯'}</div>
+                            <div class="activity-name">${escapeHtml(activity.name)}</div>
+                        `;
+                        gridDiv.appendChild(activityCard);
+                    });
+
+                    categoryDiv.appendChild(gridDiv);
+                    container.appendChild(categoryDiv);
+                });
+
+                console.log(`Rendered activities in ${Object.keys(activitiesByCategory).length} categories`);
+
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                document.getElementById('activityGrid').innerHTML = `<p style="color: #dc3545;">Error loading activities: ${error.message}</p>`;
+            }
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                'Social': '👥',
+                'Outdoor': '🌲',
+                'Sports': '⚽',
+                'Creative': '🎨',
+                'Entertainment': '🎭',
+                'Food': '🍽️',
+                'Other': '📋'
+            };
+            return icons[category] || '📋';
+        }
+
+        function toggleActivity(activityId) {
+            console.log('Toggling activity:', activityId);
+            
+            if (selectedActivities.has(activityId)) {
+                selectedActivities.delete(activityId);
+            } else {
+                selectedActivities.add(activityId);
+            }
+            
+            // Update visual immediately
+            const activityCard = document.querySelector(`[data-activity-id="${activityId}"]`);
+            if (activityCard) {
+                if (selectedActivities.has(activityId)) {
+                    activityCard.classList.add('selected');
+                } else {
+                    activityCard.classList.remove('selected');
+                }
+                console.log(`Activity ${activityId} is now ${selectedActivities.has(activityId) ? 'selected' : 'unselected'}`);
+            } else {
+                console.error('Could not find activity card for ID:', activityId);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function saveActivitySelections() {
+            if (!currentCircle || !currentUser) return;
+
+            try {
+                // Delete existing preferences
+                await supabase
+                    .from('user_activity_preferences')
+                    .delete()
+                    .eq('user_id', currentUser.id)
+                    .eq('circle_id', currentCircle.id);
+
+                // Insert new preferences
+                if (selectedActivities.size > 0) {
+                    const preferences = Array.from(selectedActivities).map(activityId => ({
+                        user_id: currentUser.id,
+                        circle_id: currentCircle.id,
+                        activity_id: activityId,
+                        is_interested: true
+                    }));
+
+                    const { error } = await supabase
+                        .from('user_activity_preferences')
+                        .insert(preferences);
+
+                    if (error) throw error;
+                }
+
+                await checkForMatches();
+                showStatus('Activities saved!', 'success', 'activityStatus');
+                setTimeout(() => navigateTo('circles'), 1500);
+
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error', 'activityStatus');
+            }
+        }
+
+        async function checkForMatches() {
+            if (!currentCircle || !currentUser) return;
+
+            try {
+                const { data: allPreferences } = await supabase
+                    .from('user_activity_preferences')
+                    .select('user_id, activity_id, users (id, username, avatar)')
+                    .eq('circle_id', currentCircle.id)
+                    .eq('is_interested', true);
+
+                if (!allPreferences) return;
+
+                const userActivities = Array.from(selectedActivities);
+                let newMatchCount = 0;
+
+                for (const activityId of userActivities) {
+                    const otherUsers = allPreferences.filter(pref => 
+                        pref.activity_id === activityId && pref.user_id !== currentUser.id
+                    );
+
+                    for (const otherUser of otherUsers) {
+                        const { data: existingMatch } = await supabase
+                            .from('matches')
+                            .select('id')
+                            .eq('circle_id', currentCircle.id)
+                            .eq('activity_id', activityId)
+                            .contains('matched_users', [currentUser.id])
+                            .contains('matched_users', [otherUser.user_id]);
+
+                        if (!existingMatch || existingMatch.length === 0) {
+                            await supabase.from('matches').insert([{
+                                circle_id: currentCircle.id,
+                                activity_id: activityId,
+                                matched_users: [currentUser.id, otherUser.user_id]
+                            }]);
+                            newMatchCount++;
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error checking matches:', error);
+            }
+        }
+
+        async function loadMatches() {
+            if (!currentUser) return;
+
+            try {
+                const list = document.getElementById('matchesList');
+                list.innerHTML = 'Loading matches...';
+
+                const { data: userMatches, error } = await supabase
+                    .from('matches')
+                    .select('id, circle_id, activity_id, matched_users')
+                    .contains('matched_users', [currentUser.id]);
+
+                if (error) throw error;
+
+                list.innerHTML = '';
+
+                if (!userMatches || userMatches.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: #6c757d; margin-top: 40px;">No matches yet! Select activities in your circles.</p>';
+                    return;
+                }
+
+                for (const match of userMatches) {
+                    const otherUserId = match.matched_users.find(id => id !== currentUser.id);
+                    
+                    const { data: otherUser } = await supabase
+                        .from('users')
+                        .select('username, avatar')
+                        .eq('id', otherUserId)
+                        .single();
+
+                    if (!otherUser) continue;
+
+                    const { data: activity } = await supabase
+                        .from('activities')
+                        .select('name, icon')
+                        .eq('id', match.activity_id)
+                        .single();
+
+                    if (!activity) continue;
+
+                    const matchCard = document.createElement('div');
+                    matchCard.className = 'match-card';
+                    matchCard.innerHTML = `
+                        <div class="match-header">
+                            <div class="match-avatar">${otherUser.avatar || '🙂'}</div>
+                            <div class="match-info">
+                                <div class="match-name">${otherUser.username}</div>
+                                <div class="match-activity">${activity.icon || '🎯'} ${activity.name}</div>
+                            </div>
+                        </div>
+                        <button class="btn-chat" onclick="openChat('${match.id}', '${otherUser.username}', '${activity.name}')">
+                            💬 Chat
+                        </button>
+                    `;
+                    list.appendChild(matchCard);
+                }
+
+            } catch (error) {
+                document.getElementById('matchesList').innerHTML = '<p style="color: #dc3545;">Error loading matches</p>';
+            }
+        }
+
+        function openChat(matchId, otherUsername, activityName) {
+            document.getElementById('chatTitle').textContent = `Chat with ${otherUsername}`;
+            loadChatMessages(activityName);
+            document.getElementById('chatModal').classList.add('active');
+        }
+
+        function loadChatMessages(activityName) {
+            const messagesDiv = document.getElementById('chatMessages');
+            messagesDiv.innerHTML = '';
+
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.style.cssText = 'text-align: center; color: #6c757d; font-size: 0.9rem; padding: 10px; background: #f8f9fa; border-radius: 8px;';
+            welcomeDiv.textContent = `You both want to ${activityName}! Start planning 🎉`;
+            messagesDiv.appendChild(welcomeDiv);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const messagesDiv = document.getElementById('chatMessages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message sent';
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+
+            input.value = '';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            setTimeout(() => {
+                const responses = [
+                    'Sounds great! When works for you?',
+                    'Perfect! I\'m free this weekend',
+                    'Love it! Let\'s make it happen 🎉'
+                ];
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                
+                const responseDiv = document.createElement('div');
+                responseDiv.className = 'message received';
+                responseDiv.textContent = response;
+                messagesDiv.appendChild(responseDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }, 1000);
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showStatus(message, type, elementId = 'statusMessage') {
+            const statusDiv = document.getElementById(elementId);
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            setTimeout(() => statusDiv.innerHTML = '', 5000);
+        }
+
+        function clearStatus(elementId = 'statusMessage') {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        // Auto-uppercase join code
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+            
+            const joinCodeInput = document.getElementById('joinCode');
+            joinCodeInput.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+
+            // Enter key support
+            document.getElementById('email').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') login();
+            });
+            
+            document.getElementById('password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') login();
+            });
+
+            document.getElementById('circleName').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') createCircle();
+            });
+
+            document.getElementById('joinCode').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') joinCircleByCode();
+            });
+
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+        });
+    </script>
+</body>
+</html>
