@@ -647,18 +647,26 @@
 
                 console.log('Activities by category:', Object.keys(activitiesByCategory));
 
-                // Remove duplicates within each category
+                // Remove duplicates within each category (but be more careful)
                 Object.keys(activitiesByCategory).forEach(category => {
                     const seen = new Set();
+                    const originalCount = activitiesByCategory[category].length;
+                    
                     activitiesByCategory[category] = activitiesByCategory[category].filter(activity => {
-                        const key = activity.name.toLowerCase();
+                        // Use just the name without emojis for duplicate detection
+                        const cleanName = activity.name.replace(/[^\w\s]/gi, '').trim().toLowerCase();
+                        const key = `${category}-${cleanName}`; // Include category in key to prevent cross-category removal
+                        
                         if (seen.has(key)) {
-                            console.log(`Removing duplicate: ${activity.name}`);
+                            console.log(`Removing duplicate in ${category}: ${activity.name}`);
                             return false;
                         }
                         seen.add(key);
                         return true;
                     });
+                    
+                    const newCount = activitiesByCategory[category].length;
+                    console.log(`Category ${category}: ${originalCount} → ${newCount} activities`);
                 });
 
                 // Render activities by category
