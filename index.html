@@ -593,20 +593,34 @@
                 container.innerHTML = 'Loading activities...';
                 selectedActivities.clear();
                 
+                console.log('Loading activities from database...');
+                
                 // Load activities from database
                 const { data: allActivities, error: activitiesError } = await supabase
                     .from('activities')
                     .select('*')
                     .order('category, name');
 
-                if (activitiesError) throw activitiesError;
+                console.log('Database response:', { allActivities, activitiesError });
 
-                if (!allActivities || allActivities.length === 0) {
-                    container.innerHTML = '<p style="color: #dc3545;">No activities found</p>';
+                if (activitiesError) {
+                    console.error('Activities error:', activitiesError);
+                    container.innerHTML = `<p style="color: #dc3545;">Database error: ${activitiesError.message}</p>`;
                     return;
                 }
 
-                console.log(`Loaded ${allActivities.length} activities from database`);
+                if (!allActivities || allActivities.length === 0) {
+                    console.log('No activities found in database');
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #6c757d; padding: 20px;">
+                            <p>No activities found in database.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">You may need to run the SQL setup to add default activities.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                console.log(`Found ${allActivities.length} activities:`, allActivities.map(a => a.name));
 
                 // Load user preferences
                 const { data: preferences } = await supabase
@@ -631,6 +645,8 @@
                     activitiesByCategory[category].push(activity);
                 });
 
+                console.log('Activities by category:', Object.keys(activitiesByCategory));
+
                 // Remove duplicates within each category
                 Object.keys(activitiesByCategory).forEach(category => {
                     const seen = new Set();
@@ -649,9 +665,12 @@
                 container.innerHTML = '';
                 const categoryOrder = ['Social', 'Outdoor', 'Sports', 'Creative', 'Entertainment', 'Food', 'Other'];
                 
+                let totalRendered = 0;
                 categoryOrder.forEach(categoryName => {
                     const categoryActivities = activitiesByCategory[categoryName];
                     if (!categoryActivities || categoryActivities.length === 0) return;
+
+                    console.log(`Rendering ${categoryActivities.length} activities for category: ${categoryName}`);
 
                     // Create category section
                     const categoryDiv = document.createElement('div');
@@ -676,17 +695,32 @@
                             <div class="activity-name">${escapeHtml(activity.name)}</div>
                         `;
                         gridDiv.appendChild(activityCard);
+                        totalRendered++;
                     });
 
                     categoryDiv.appendChild(gridDiv);
                     container.appendChild(categoryDiv);
                 });
 
-                console.log(`Rendered activities in ${Object.keys(activitiesByCategory).length} categories`);
+                console.log(`Successfully rendered ${totalRendered} activities in ${Object.keys(activitiesByCategory).length} categories`);
+
+                if (totalRendered === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #6c757d; padding: 20px;">
+                            <p>No activities to display.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Check console for details.</p>
+                        </div>
+                    `;
+                }
 
             } catch (error) {
                 console.error('Error loading activities:', error);
-                document.getElementById('activityGrid').innerHTML = `<p style="color: #dc3545;">Error loading activities: ${error.message}</p>`;
+                document.getElementById('activityGrid').innerHTML = `
+                    <div style="text-align: center; color: #dc3545; padding: 20px;">
+                        <p>Error loading activities: ${error.message}</p>
+                        <p style="font-size: 0.9rem; margin-top: 10px;">Check console for details.</p>
+                    </div>
+                `;
             }
         }
 
