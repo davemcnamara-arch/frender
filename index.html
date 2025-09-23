@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friendle - Fixed Activities</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; color: #333;
+        }
+
+        .app-container {
+            max-width: 420px; margin: 0 auto; min-height: 100vh;
+            background: white; box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .page { display: none; min-height: 100vh; }
+        .page.active { display: block; }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; text-align: center; position: relative;
+        }
+
+        .header h1 { font-size: 1.8rem; margin-bottom: 5px; }
+        .back-button {
+            position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            width: 40px; height: 40px; border-radius: 20px; cursor: pointer; font-size: 18px;
+        }
+
+        .content { padding: 20px; padding-bottom: 80px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group input { width: 100%; padding: 12px 16px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 16px; }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; padding: 14px 24px; border-radius: 12px;
+            cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; margin-bottom: 10px;
+        }
+
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 100%; max-width: 420px; background: white;
+            border-top: 1px solid #e9ecef; display: flex; padding: 10px 0;
+        }
+
+        .nav-item {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 8px; cursor: pointer; color: #6c757d;
+        }
+        .nav-item.active { color: #667eea; }
+
+        .activity-item {
+            background: white; border: 2px solid #e9ecef; border-radius: 12px;
+            padding: 15px; margin: 8px 0; cursor: pointer; transition: all 0.2s ease;
+            display: flex; align-items: center; gap: 15px;
+        }
+
+        .activity-item:hover { border-color: #667eea; }
+        .activity-item.selected { border-color: #667eea; background: rgba(102, 126, 234, 0.1); }
+
+        .activity-icon { font-size: 24px; }
+        .activity-name { font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div id="auth" class="page active">
+            <div class="header"><h1>Friendle - Fixed</h1></div>
+            <div class="content">
+                <div class="form-group">
+                    <input type="email" id="email" placeholder="Email">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="password" placeholder="Password">
+                </div>
+                <button class="btn-primary" onclick="login()">Sign In</button>
+                <div id="statusMessage"></div>
+            </div>
+        </div>
+
+        <div id="activities" class="page">
+            <div class="header">
+                <h1>Activities - Debug Version</h1>
+            </div>
+            <div class="content">
+                <div id="activityGrid">Loading...</div>
+                <button class="btn-primary" onclick="saveActivities()" style="margin-top: 20px;">Save Selected</button>
+                <div id="activityStatus"></div>
+            </div>
+        </div>
+
+        <div class="bottom-nav" id="bottomNav" style="display: none;">
+            <div class="nav-item active" onclick="showActivities()">
+                <div>Activities</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://mrjodwrttsgbpxfsfxqi.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yam9kd3J0dHNnYnB4ZnNmeHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzNTE0NDQsImV4cCI6MjA3MzkyNzQ0NH0.BrThh6Ux6--1QPDhqrw5vJ_7NjUltXSGma1G1rrQOYY';
+        
+        let supabase;
+        let currentUser = null;
+        let selectedActivities = new Set();
+
+        async function init() {
+            console.log('*** INITIALIZING FIXED VERSION ***');
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await loadUserProfile(session.user);
+                showApp();
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+                await loadUserProfile(data.user);
+                showApp();
+
+            } catch (error) {
+                document.getElementById('statusMessage').innerHTML = `<p style="color: red;">Login failed: ${error.message}</p>`;
+            }
+        }
+
+        async function loadUserProfile(authUser) {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('auth_user_id', authUser.id)
+                .single();
+
+            if (error || !data) throw new Error('Profile not found');
+
+            currentUser = { id: data.id, username: data.username };
+            console.log('User loaded:', currentUser);
+        }
+
+        function showApp() {
+            document.getElementById('bottomNav').style.display = 'flex';
+            showActivities();
+        }
+
+        function showActivities() {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('activities').classList.add('active');
+            loadActivitiesSimple();
+        }
+
+        async function loadActivitiesSimple() {
+            console.log('*** LOADING ACTIVITIES - FIXED VERSION ***');
+            
+            const container = document.getElementById('activityGrid');
+            container.innerHTML = 'Loading activities...';
+
+            try {
+                // Load activities from database
+                const { data: activities, error } = await supabase
+                    .from('activities')
+                    .select('*')
+                    .order('category, name');
+
+                console.log('Activities loaded:', activities?.length || 0);
+
+                if (error) {
+                    console.error('Database error:', error);
+                    container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                    return;
+                }
+
+                if (!activities || activities.length === 0) {
+                    container.innerHTML = '<p>No activities found</p>';
+                    return;
+                }
+
+                // Group by category
+                const byCategory = {};
+                activities.forEach(activity => {
+                    const category = activity.category || 'Other';
+                    if (!byCategory[category]) byCategory[category] = [];
+                    byCategory[category].push(activity);
+                });
+
+                console.log('Categories found:', Object.keys(byCategory));
+
+                // Render with categories
+                container.innerHTML = '';
+                let totalRendered = 0;
+
+                Object.keys(byCategory).sort().forEach(categoryName => {
+                    const categoryActivities = byCategory[categoryName];
+                    
+                    // Category header
+                    const header = document.createElement('div');
+                    header.style.cssText = 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 16px; border-radius: 8px; margin: 15px 0 10px 0; font-weight: 600; text-align: center;';
+                    header.textContent = `${getCategoryIcon(categoryName)} ${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}`;
+                    container.appendChild(header);
+
+                    // Activities for this category
+                    categoryActivities.forEach(activity => {
+                        console.log(`Rendering: ${activity.name} in ${categoryName}`);
+                        
+                        // Extract emoji from name
+                        const emojiMatch = activity.name.match(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u);
+                        const emoji = emojiMatch ? emojiMatch[0] : '🎯';
+                        const cleanName = activity.name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+
+                        const div = document.createElement('div');
+                        div.className = 'activity-item';
+                        div.setAttribute('data-activity-id', activity.id);
+                        div.innerHTML = `
+                            <div class="activity-icon">${emoji}</div>
+                            <div class="activity-name">${cleanName}</div>
+                        `;
+                        
+                        div.onclick = () => toggleActivity(activity.id, div);
+                        container.appendChild(div);
+                        totalRendered++;
+                    });
+                });
+
+                console.log(`*** SUCCESSFULLY RENDERED ${totalRendered} ACTIVITIES IN ${Object.keys(byCategory).length} CATEGORIES ***`);
+
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                'social': '👥', 'outdoor': '🌲', 'sports': '⚽', 'fitness': '💪',
+                'creative': '🎨', 'culture': '🏛️', 'entertainment': '🎭',
+                'food': '🍽️', 'indoor': '🏠', 'leisure': '😌', 'general': '📋'
+            };
+            return icons[category.toLowerCase()] || '📋';
+        }
+
+        function toggleActivity(activityId, element) {
+            console.log('Toggling activity:', activityId);
+            
+            if (selectedActivities.has(activityId)) {
+                selectedActivities.delete(activityId);
+                element.classList.remove('selected');
+            } else {
+                selectedActivities.add(activityId);
+                element.classList.add('selected');
+            }
+            
+            console.log('Selected activities:', selectedActivities.size);
+        }
+
+        function saveActivities() {
+            console.log('Saving activities:', Array.from(selectedActivities));
+            document.getElementById('activityStatus').innerHTML = `<p style="color: green;">Saved ${selectedActivities.size} activities!</p>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
