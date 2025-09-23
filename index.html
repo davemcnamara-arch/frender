@@ -175,8 +175,7 @@
                 const { data: activities, error } = await supabase
                     .from('activities')
                     .select('*')
-                    .order('name')
-                    .limit(20); // Limit for testing
+                    .order('category, name');
 
                 console.log('Activities loaded:', activities?.length || 0);
 
@@ -191,37 +190,67 @@
                     return;
                 }
 
-                // Simple rendering - no categories, no complex logic
-                container.innerHTML = '';
-                let rendered = 0;
-
-                activities.forEach((activity, index) => {
-                    console.log(`Rendering ${index + 1}: ${activity.name}`);
-                    
-                    // Extract emoji from name
-                    const emojiMatch = activity.name.match(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u);
-                    const emoji = emojiMatch ? emojiMatch[0] : '🎯';
-                    const cleanName = activity.name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
-
-                    const div = document.createElement('div');
-                    div.className = 'activity-item';
-                    div.setAttribute('data-activity-id', activity.id);
-                    div.innerHTML = `
-                        <div class="activity-icon">${emoji}</div>
-                        <div class="activity-name">${cleanName}</div>
-                    `;
-                    
-                    div.onclick = () => toggleActivity(activity.id, div);
-                    container.appendChild(div);
-                    rendered++;
+                // Group by category
+                const byCategory = {};
+                activities.forEach(activity => {
+                    const category = activity.category || 'Other';
+                    if (!byCategory[category]) byCategory[category] = [];
+                    byCategory[category].push(activity);
                 });
 
-                console.log(`*** SUCCESSFULLY RENDERED ${rendered} ACTIVITIES ***`);
+                console.log('Categories found:', Object.keys(byCategory));
+
+                // Render with categories
+                container.innerHTML = '';
+                let totalRendered = 0;
+
+                Object.keys(byCategory).sort().forEach(categoryName => {
+                    const categoryActivities = byCategory[categoryName];
+                    
+                    // Category header
+                    const header = document.createElement('div');
+                    header.style.cssText = 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 16px; border-radius: 8px; margin: 15px 0 10px 0; font-weight: 600; text-align: center;';
+                    header.textContent = `${getCategoryIcon(categoryName)} ${categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}`;
+                    container.appendChild(header);
+
+                    // Activities for this category
+                    categoryActivities.forEach(activity => {
+                        console.log(`Rendering: ${activity.name} in ${categoryName}`);
+                        
+                        // Extract emoji from name
+                        const emojiMatch = activity.name.match(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u);
+                        const emoji = emojiMatch ? emojiMatch[0] : '🎯';
+                        const cleanName = activity.name.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+
+                        const div = document.createElement('div');
+                        div.className = 'activity-item';
+                        div.setAttribute('data-activity-id', activity.id);
+                        div.innerHTML = `
+                            <div class="activity-icon">${emoji}</div>
+                            <div class="activity-name">${cleanName}</div>
+                        `;
+                        
+                        div.onclick = () => toggleActivity(activity.id, div);
+                        container.appendChild(div);
+                        totalRendered++;
+                    });
+                });
+
+                console.log(`*** SUCCESSFULLY RENDERED ${totalRendered} ACTIVITIES IN ${Object.keys(byCategory).length} CATEGORIES ***`);
 
             } catch (error) {
                 console.error('Error loading activities:', error);
                 container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
             }
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                'social': '👥', 'outdoor': '🌲', 'sports': '⚽', 'fitness': '💪',
+                'creative': '🎨', 'culture': '🏛️', 'entertainment': '🎭',
+                'food': '🍽️', 'indoor': '🏠', 'leisure': '😌', 'general': '📋'
+            };
+            return icons[category.toLowerCase()] || '📋';
         }
 
         function toggleActivity(activityId, element) {
